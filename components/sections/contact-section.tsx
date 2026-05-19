@@ -2,18 +2,50 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { motion } from "framer-motion"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Mail, Phone, MapPin, Send, Mic, MicOff } from "lucide-react"
+import { Mail, Phone, MapPin, Send, Mic, MicOff, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+
+const QUICK_PROMPTS = [
+  {
+    label: "Tell me about Shreyas's experience",
+    text: "I'd like to know more about your internship at Infosys Springboard and the projects you contributed to there.",
+  },
+  {
+    label: "What technologies does he use?",
+    text: "Could you summarize your strongest technical skills across full stack development, ML/NLP, and tooling?",
+  },
+  {
+    label: "Schedule a meeting",
+    text: "I'd like to schedule a short call to discuss a potential collaboration. Please suggest a few time slots that work for you.",
+  },
+] as const
+
+type SpeechRecognitionResultEvent = {
+  results: ArrayLike<ArrayLike<{ transcript: string }>>
+}
+
+type SpeechRecognitionInstance = {
+  lang: string
+  interimResults: boolean
+  maxAlternatives: number
+  start: () => void
+  stop: () => void
+  onresult: ((ev: SpeechRecognitionResultEvent) => void) | null
+  onerror: ((ev: Event) => void) | null
+  onend: (() => void) | null
+}
 
 export default function ContactSection() {
   const [isRecording, setIsRecording] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const recognitionRef = useRef<{ stop: () => void } | null>(null)
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -23,24 +55,122 @@ export default function ContactSection() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setIsSubmitting(true)
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      })
+      const data = (await res.json()) as {
+        ok?: boolean
+        error?: string
+        code?: string
+        mailto?: string
+        hint?: string
+      }
 
-    // Simulate form submission
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+      if (data.ok) {
+        toast({
+          title: "Message sent",
+          description: "Thanks for reaching out — I'll get back to you soon.",
+        })
+        setFormData({ name: "", email: "", message: "" })
+        return
+      }
 
-    toast({
-      title: "Message sent! 🚀",
-      description: "Thanks for reaching out. I'll get back to you soon!",
-    })
+      if (data.code === "NOT_CONFIGURED" && data.mailto) {
+        toast({
+          title: "Opening your email app",
+          description:
+            data.hint ??
+            "Add WEB3FORMS_ACCESS_KEY to .env.local to send from the site without leaving the page.",
+        })
+        window.location.assign(data.mailto)
+        return
+      }
 
-    setFormData({ name: "", email: "", message: "" })
+      toast({
+        variant: "destructive",
+        title: "Could not send",
+        description: data.error ?? "Something went wrong. Please try again.",
+      })
+    } catch {
+      toast({
+        variant: "destructive",
+        title: "Network error",
+        description: "Check your connection and try again.",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const applyQuickPrompt = (text: string) => {
+    setFormData((prev) => ({ ...prev, message: text }))
+    toast({ title: "Message filled", description: "Edit as you like, then send." })
   }
 
   const toggleRecording = () => {
-    setIsRecording(!isRecording)
-    if (!isRecording) {
+    if (typeof window === "undefined") return
+
+    if (isRecording) {
+      recognitionRef.current?.stop()
+      recognitionRef.current = null
+      setIsRecording(false)
+      return
+    }
+
+    const SpeechRecognitionCtor =
+      (window as unknown as { SpeechRecognition?: new () => SpeechRecognitionInstance }).SpeechRecognition ??
+      (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognitionInstance }).webkitSpeechRecognition
+
+    if (!SpeechRecognitionCtor) {
       toast({
-        title: "Voice input activated 🎤",
-        description: "Speak your message and I'll transcribe it for you!",
+        title: "Voice input unavailable",
+        description: "Try Chrome or Edge, or type your message.",
+      })
+      return
+    }
+
+    const recognition = new SpeechRecognitionCtor()
+    recognition.lang = "en-US"
+    recognition.interimResults = false
+    recognition.maxAlternatives = 1
+    recognition.onresult = (event: SpeechRecognitionResultEvent) => {
+      const transcript = event.results[0]?.[0]?.transcript ?? ""
+      if (transcript) {
+        setFormData((prev) => ({
+          ...prev,
+          message: prev.message ? `${prev.message} ${transcript}`.trim() : transcript,
+        }))
+      }
+    }
+    recognition.onerror = () => {
+      recognitionRef.current = null
+      setIsRecording(false)
+      toast({
+        variant: "destructive",
+        title: "Voice input failed",
+        description: "Allow microphone access or try again.",
+      })
+    }
+    recognition.onend = () => {
+      recognitionRef.current = null
+      setIsRecording(false)
+    }
+
+    recognitionRef.current = recognition
+    try {
+      recognition.start()
+      setIsRecording(true)
+      toast({ title: "Listening…", description: "Speak your message. Tap the mic again to stop." })
+    } catch {
+      recognitionRef.current = null
+      toast({
+        variant: "destructive",
+        title: "Could not start microphone",
+        description: "Check permissions and try again.",
       })
     }
   }
@@ -118,11 +248,16 @@ export default function ContactSection() {
 
                   <Button
                     type="submit"
-                    className="w-full glass-morphism border-cyan-400 text-cyan-400 hover:bg-cyan-400/20 hover:animate-glow"
+                    disabled={isSubmitting}
+                    className="w-full glass-morphism border-cyan-400 text-cyan-400 hover:bg-cyan-400/20 hover:animate-glow disabled:opacity-60"
                     size="lg"
                   >
-                    <Send className="mr-2 h-5 w-5" />
-                    Send Message
+                    {isSubmitting ? (
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    ) : (
+                      <Send className="mr-2 h-5 w-5" />
+                    )}
+                    {isSubmitting ? "Sending…" : "Send Message"}
                   </Button>
                 </form>
               </CardContent>
@@ -144,17 +279,17 @@ export default function ContactSection() {
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-3">
                   <Mail className="h-5 w-5 text-cyan-400" />
-                  <span className="text-white/80">john.doe@example.com</span>
+                  <span className="text-white/80">shreyasugratarikere@gmail.com</span>
                 </div>
 
                 <div className="flex items-center gap-3">
                   <Phone className="h-5 w-5 text-green-400" />
-                  <span className="text-white/80">+1 (555) 123-4567</span>
+                  <span className="text-white/80">(+49) 015567046223</span>
                 </div>
 
                 <div className="flex items-center gap-3">
                   <MapPin className="h-5 w-5 text-purple-400" />
-                  <span className="text-white/80">San Francisco, CA</span>
+                  <span className="text-white/80">Hamburg, Germany</span>
                 </div>
               </CardContent>
             </Card>
@@ -172,22 +307,31 @@ export default function ContactSection() {
                     </div>
                     <div className="flex-1">
                       <p className="text-white/80 text-sm">
-                        Hi! I'm John's AI assistant. I can help answer questions about his experience, schedule
-                        meetings, or provide project details. What would you like to know?
+                        Hi! I can answer questions about Shreyas's work experience, technical stack, AI projects, and
+                        availability for collaboration opportunities.
                       </p>
                     </div>
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="secondary" className="bg-white/10 text-white cursor-pointer hover:bg-white/20">
-                      Tell me about John's experience
-                    </Badge>
-                    <Badge variant="secondary" className="bg-white/10 text-white cursor-pointer hover:bg-white/20">
-                      What technologies does he use?
-                    </Badge>
-                    <Badge variant="secondary" className="bg-white/10 text-white cursor-pointer hover:bg-white/20">
-                      Schedule a meeting
-                    </Badge>
+                    {QUICK_PROMPTS.map((p) => (
+                      <Badge
+                        key={p.label}
+                        role="button"
+                        tabIndex={0}
+                        variant="secondary"
+                        className="bg-white/10 text-white cursor-pointer hover:bg-white/20 transition-colors"
+                        onClick={() => applyQuickPrompt(p.text)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault()
+                            applyQuickPrompt(p.text)
+                          }
+                        }}
+                      >
+                        {p.label}
+                      </Badge>
+                    ))}
                   </div>
                 </div>
               </CardContent>
@@ -201,14 +345,36 @@ export default function ContactSection() {
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
                   {[
-                    { name: "GitHub", icon: "🐙", color: "hover:text-gray-400" },
-                    { name: "LinkedIn", icon: "💼", color: "hover:text-blue-400" },
-                    { name: "Twitter", icon: "🐦", color: "hover:text-cyan-400" },
-                    { name: "Discord", icon: "🎮", color: "hover:text-purple-400" },
+                    {
+                      name: "GitHub",
+                      icon: "🐙",
+                      color: "hover:text-gray-400",
+                      href: "https://github.com/Shreyas963",
+                    },
+                    {
+                      name: "LinkedIn",
+                      icon: "💼",
+                      color: "hover:text-blue-400",
+                      href: "https://linkedin.com/in/shreyas-ugra-t-v-4994a9254",
+                    },
+                    {
+                      name: "Portfolio",
+                      icon: "🌐",
+                      color: "hover:text-cyan-400",
+                      href: "https://shreyas-portfolio1-six.vercel.app",
+                    },
+                    {
+                      name: "Email",
+                      icon: "✉️",
+                      color: "hover:text-purple-400",
+                      href: "mailto:shreyasugratarikere@gmail.com",
+                    },
                   ].map((social) => (
                     <motion.a
                       key={social.name}
-                      href="#"
+                      href={social.href}
+                      target={social.href.startsWith("mailto:") ? undefined : "_blank"}
+                      rel={social.href.startsWith("mailto:") ? undefined : "noopener noreferrer"}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       className={`flex items-center gap-2 p-3 rounded-lg glass-morphism border border-white/10 text-white/80 transition-colors ${social.color}`}
@@ -231,7 +397,7 @@ export default function ContactSection() {
           className="mt-20 pt-8 border-t border-white/10 text-center"
         >
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="text-white/60">© 2025 John Doe. Crafted with ❤️ and cutting-edge tech.</div>
+            <div className="text-white/60">© 2026 Shreyas Ugra. Crafted with ❤️ and cutting-edge tech.</div>
 
             <div className="flex items-center gap-4">
               <div className="w-16 h-1 bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full animate-pulse" />

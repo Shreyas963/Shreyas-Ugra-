@@ -39,7 +39,7 @@ export default function Navigation() {
       <div className="container mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           <motion.div whileHover={{ scale: 1.05 }} className="text-2xl font-bold liquid-gradient font-sora">
-            John Doe
+            Shreyas Ugra
           </motion.div>
 
           {/* Desktop Navigation */}

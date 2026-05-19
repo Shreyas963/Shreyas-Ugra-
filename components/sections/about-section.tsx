@@ -16,8 +16,10 @@ export default function AboutSection() {
         >
           <h2 className="text-4xl md:text-6xl font-bold mb-6 liquid-gradient font-sora">About Me</h2>
           <p className="text-xl text-white/80 max-w-3xl mx-auto">
-            I'm a creative technologist who bridges the gap between design and development, crafting digital experiences
-            that push the boundaries of what's possible on the web.
+            I&apos;m Shreyas — you may also find me as Shreyas Ugra online. Full Stack &amp; AI Developer with internship
+            experience in backend development, ML pipelines, and data processing. Currently pursuing M.Sc. Computer
+            Science at RPTU Kaiserslautern with a strong foundation in MERN stack, NLP systems, and production-ready
+            software engineering.
           </p>
         </motion.div>
 

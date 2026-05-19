@@ -58,24 +58,25 @@ export default function HeroSection() {
           </motion.div>
 
           {/* Name with Liquid Gradient */}
-          <motion.h1
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8, duration: 1 }}
-            className="text-6xl md:text-8xl font-bold mb-6 liquid-gradient font-sora"
-          >
-            John Doe
-          </motion.h1>
+              <motion.h1
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.8, duration: 1 }}
+      className="text-6xl md:text-8xl font-bold mb-6 liquid-gradient font-sora"
+    >
+      Shreyas Ugra
+    </motion.h1>
 
-          {/* Subheading */}
-          <motion.p
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1, duration: 0.8 }}
-            className="text-xl md:text-2xl text-white/80 mb-8 font-light"
-          >
-            Inventing tomorrow's web, one line of code at a time.
-          </motion.p>
+    <motion.p
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 1, duration: 0.8 }}
+      className="text-xl md:text-2xl text-white/80 mb-8 font-light"
+    >
+      I&apos;m <span className="text-white/90">Shreyas</span> — professionally{" "}
+      <span className="text-white/90">Shreyas Ugra</span>. Full Stack &amp; AI Developer building reliable web platforms
+      and ML-powered solutions.
+    </motion.p>
 
           {/* CTA Buttons */}
           <motion.div
@@ -84,20 +85,43 @@ export default function HeroSection() {
             transition={{ delay: 1.2, duration: 0.8 }}
             className="flex flex-col sm:flex-row gap-4 justify-center items-center"
           >
-            <Button
+            {/* <Button
               size="lg"
               className="glass-morphism hover:animate-glow text-white border-cyan-400 hover:border-cyan-300 px-8 py-4 text-lg bg-transparent"
               variant="outline"
+            
             >
               <Rocket className="mr-2 h-5 w-5" />🚀 Explore My Universe
-            </Button>
+            </Button> */}
+
             <Button
-              size="lg"
-              className="glass-morphism hover:animate-glow text-white border-purple-400 hover:border-purple-300 px-8 py-4 text-lg bg-transparent"
-              variant="outline"
-            >
-              <Download className="mr-2 h-5 w-5" />📄 Download Resume
-            </Button>
+  size="lg"
+  className="glass-morphism hover:animate-glow text-white border-cyan-400 hover:border-cyan-300 px-8 py-4 text-lg bg-transparent"
+  variant="outline"
+>
+  <a
+    href="https://www.linkedin.com/in/shreyas-ugra-tarikere-vasudeva-murthy-4994a9254/"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="flex items-center"
+  >
+    <Rocket className="mr-2 h-5 w-5" />Explore My Universe
+  </a>
+</Button>
+
+
+
+          <Button
+  asChild
+  size="lg"
+  variant="outline"
+  className="glass-morphism hover:animate-glow text-white border-purple-400 hover:border-purple-300 px-8 py-4 text-lg bg-transparent"
+>
+  <a href="/resume.pdf" download>
+    <Download className="mr-2 h-5 w-5" /> 📄 Download Resume
+  </a>
+</Button>
+
           </motion.div>
         </motion.div>
       </div>
